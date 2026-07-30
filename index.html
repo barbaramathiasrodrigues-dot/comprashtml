@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livro de Comércio de Bree - Registro de Compras</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=MedievalSharp&display=swap" rel="stylesheet">
+
+  <style>
+    body { background-color: #0f0d0a; color: #e2d2b4; font-family: 'MedievalSharp', cursive, serif; }
+    .font-title { font-family: 'Cinzel Decorative', serif; }
+    .gold-border { border: 1px solid #b8860b; box-shadow: 0 0 10px rgba(184, 134, 11, 0.15); }
+    .elvish-glow:focus-within, .elvish-glow:hover { box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); border-color: #d4af37; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f0d0a; }
+    ::-webkit-scrollbar-thumb { background: #3a2e1e; border-radius: 3px; }
+  </style>
+</head>
+<body class="p-3 md:p-5 min-h-screen flex flex-col justify-between" x-data="comprasApp()">
+
+  <div class="max-w-4xl mx-auto w-full space-y-5">
+    
+    <!-- HEADER ÉPICO -->
+    <header class="flex justify-between items-center border-b border-[#3a2e1e] pb-3">
+      <div>
+        <h1 class="font-title text-xl md:text-2xl text-[#d4af37] tracking-wider drop-shadow-md">
+          🛒 Livro de Comércio de Bree
+        </h1>
+        <p class="text-[11px] md:text-xs text-[#a39274]">
+          Registro Detalhado de Compras • Cartões, Boletos, Logística & Natureza
+        </p>
+      </div>
+
+      <button @click="carregarDados()" 
+        class="bg-[#1c1712] hover:bg-[#2e2316] text-[#d4af37] text-xs font-semibold py-1.5 px-3 rounded border border-[#b8860b]/40 flex items-center gap-1.5 transition cursor-pointer active:scale-95">
+        <span :class="carregando ? 'animate-spin' : ''">⚡</span>
+        <span x-text="carregando ? 'Sincronizando...' : 'Sincronizar'"></span>
+      </button>
+    </header>
+
+    <!-- FORMULÁRIO DE REGISTRO / EDIÇÃO DE COMPRA -->
+    <section class="bg-[#181410] p-4 rounded-lg gold-border space-y-3">
+      <h2 class="text-sm text-[#d4af37] font-semibold flex items-center justify-between">
+        <span class="flex items-center gap-2">
+          <span>✍️</span> 
+          <span x-text="editandoId ? 'Editar Registro de Compra' : 'Registrar Nova Aquisição'"></span>
+        </span>
+        <button x-show="editandoId" @click="cancelarEdicao()" class="text-xs text-[#8b0000] hover:underline">Cancelar Edição</button>
+      </h2>
+
+      <form @submit.prevent="salvarCompra()" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        
+        <!-- Nome do Item / Descrição -->
+        <div class="sm:col-span-2">
+          <label class="block text-[11px] text-[#a39274] mb-1">Item / Descrição da Compra</label>
+          <input type="text" x-model="nomeItem" placeholder="Ex: Monitor Dell 27, Tênis, Livro..." required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+        </div>
+
+        <!-- Valor Total -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Valor Total (R$)</label>
+          <input type="number" step="0.01" x-model="valorTotal" placeholder="Ex: 350.00" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+        </div>
+
+        <!-- Parcelas -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Nº de Parcelas</label>
+          <input type="number" min="1" x-model="parcelas" placeholder="1 = À vista" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+        </div>
+
+        <!-- Loja (Origem: Módulo 01) -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Loja / Vendedor (Mod 01)</label>
+          <select x-model="lojaSelecionada" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+            <option value="">Selecione a loja...</option>
+            <template x-for="l in lojasCadastradas" :key="l.id">
+              <option :value="l.nome" x-text="l.nome"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Categoria (Origem: Módulo 01) -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Categoria (Mod 01)</label>
+          <select x-model="categoriaSelecionada" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+            <option value="">Selecione a categoria...</option>
+            <template x-for="cat in categoriasCadastradas" :key="cat.id">
+              <option :value="cat.nome" x-text="cat.nome"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Forma de Pagamento (Nativa + Módulo 01) -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Forma de Pagamento</label>
+          <select x-model="pagamentoSelecionado" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+            <option value="">Selecione a forma de pagamento...</option>
+            
+            <!-- OPÇÕES NATIVAS (BOLETO / PIX) -->
+            <optgroup label="📄 Modos Diretos">
+              <option value="📄 Boleto Bancário">📄 Boleto Bancário / Carnê</option>
+              <option value="⚡ PIX À Vista">⚡ PIX À Vista</option>
+              <option value="💵 Dinheiro Vivo">💵 Dinheiro Vivo</option>
+            </optgroup>
+
+            <!-- OPÇÕES CADASTRADAS NO MÓDULO 01 -->
+            <optgroup label="💳 Cartões e Bancos Cadastrados">
+              <template x-for="p in pagamentosCadastrados" :key="p.id">
+                <option :value="p.nome" x-text="p.nome + ' (' + p.categoria + ')'"></option>
+              </template>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Natureza da Compra -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Natureza</label>
+          <select x-model="natureza" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+            <option value="Uso Pessoal">👤 Uso Pessoal</option>
+            <option value="Casa / Estúdio">🏡 Casa / Estúdio</option>
+            <option value="Presente">🎁 Presente (Baú de Galadriel)</option>
+            <option value="Trabalho">💼 Trabalho / Loja</option>
+          </select>
+        </div>
+
+        <!-- Status da Entrega -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Status da Logística</label>
+          <select x-model="statusEntrega" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+            <option value="Em Trânsito">📦 Em Trânsito (A caminho)</option>
+            <option value="Entregue">✅ Entregue / Retirado</option>
+            <option value="Aguardando Envio">⏳ Aguardando Envio</option>
+          </select>
+        </div>
+
+        <!-- Data da Compra -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Data da Compra</label>
+          <input type="date" x-model="dataCompra" required
+            class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
+        </div>
+
+        <!-- Botão Ação -->
+        <div class="sm:col-span-2 flex items-end">
+          <button type="submit" 
+            class="w-full bg-[#b8860b] hover:bg-[#d4af37] text-[#0f0d0a] font-bold py-2.5 px-4 text-xs rounded transition duration-200 cursor-pointer active:scale-95">
+            <span x-text="editandoId ? 'Atualizar Registro' : '⚔️ Registrar no Livro de Bree'"></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- TABELA / LISTA DAS COMPRAS -->
+    <section class="bg-[#14100c] p-4 rounded-lg border border-[#2e2316] space-y-3">
+      <h2 class="text-sm text-[#d4af37] font-semibold flex items-center justify-between border-b border-[#2e2316] pb-2">
+        <span class="flex items-center gap-2">📜 Livro de Compras Registradas</span>
+        <span class="text-[10px] bg-[#2e2316] text-[#a39274] px-2 py-0.5 rounded-full" x-text="compras.length + ' compras'"></span>
+      </h2>
+
+      <div class="space-y-2 text-xs max-h-96 overflow-y-auto pr-1">
+        <template x-for="item in compras" :key="item.id">
+          <div class="bg-[#1c1712] p-3 rounded border border-[#2e2316] flex flex-col md:flex-row md:items-center justify-between gap-2 hover:border-[#b8860b]/40 transition">
+            
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-sm text-[#e2d2b4]" x-text="item.nomeItem"></span>
+                <span :class="item.statusEntrega === 'Em Trânsito' ? 'bg-[#c97d32]/20 text-[#e5a93c] border-[#c97d32]/40' : (item.statusEntrega === 'Entregue' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40' : 'bg-gray-800 text-gray-400')"
+                  class="text-[9px] px-2 py-0.5 rounded border uppercase font-bold" x-text="item.statusEntrega"></span>
+                
+                <template x-if="item.pagamento.includes('Boleto')">
+                  <span class="text-[9px] bg-amber-900/40 text-amber-300 border border-amber-700/50 px-1.5 py-0.5 rounded font-bold">📄 Boleto</span>
+                </template>
+
+                <template x-if="item.natureza === 'Presente'">
+                  <span class="text-[9px] bg-purple-900/30 text-purple-300 border border-purple-700/40 px-1.5 py-0.5 rounded">🎁 Presente</span>
+                </template>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#a39274]">
+                <span>🛒 <strong class="text-[#e2d2b4]" x-text="item.loja"></strong></span>
+                <span>🏷️ <strong class="text-[#e2d2b4]" x-text="item.categoria"></strong></span>
+                <span>💳 <strong class="text-[#e2d2b4]" x-text="item.pagamento"></strong></span>
+                <span>📅 <span x-text="formatarData(item.dataCompra)"></span></span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 border-[#2e2316] pt-2 md:pt-0">
+              <div class="text-right">
+                <div class="font-bold text-sm text-[#d4af37]" x-text="formatarMoeda(item.valorTotal)"></div>
+                <div class="text-[10px] text-[#6e5d4f]" x-text="item.parcelas > 1 ? item.parcelas + 'x de ' + formatarMoeda(item.valorTotal / item.parcelas) : 'À vista'"></div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button @click="prepararEdicao(item)" title="Editar" class="text-[#d4af37] hover:text-[#fff] text-xs font-bold p-1">✎</button>
+                <button @click="excluirCompra(item.id)" title="Excluir" class="text-[#8b0000] hover:text-[#ff4500] text-xs font-bold p-1">✕</button>
+              </div>
+            </div>
+
+          </div>
+        </template>
+
+        <template x-if="compras.length === 0">
+          <p class="text-xs text-[#6e5d4f] italic py-4 text-center">Nenhuma compra registrada no Livro de Bree ainda.</p>
+        </template>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER STATUS -->
+  <footer class="mt-6 text-center text-[9px] text-[#6e5d4f] border-t border-[#2e2316] pt-2">
+    <span>Livro de Comércio de Bree • Projeto Erebor OS</span>
+  </footer>
+
+  <!-- SCRIPT FIREBASE COMPAT + ALPINE LOGIC -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDU3mYKoWh8qE3wj6R5OKqhWwXMeefEl2g",
+      authDomain: "erebor-os.firebaseapp.com",
+      projectId: "erebor-os",
+      storageBucket: "erebor-os.firebasestorage.app",
+      messagingSenderId: "733641275906",
+      appId: "1:733641275906:web:d83dedfee8bc056a7e851b"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('comprasApp', () => ({
+        compras: [],
+        lojasCadastradas: [],
+        categoriasCadastradas: [],
+        pagamentosCadastrados: [],
+        nomeItem: '',
+        valorTotal: '',
+        parcelas: 1,
+        lojaSelecionada: '',
+        categoriaSelecionada: '',
+        pagamentoSelecionado: '📄 Boleto Bancário',
+        natureza: 'Uso Pessoal',
+        statusEntrega: 'Em Trânsito',
+        dataCompra: new Date().toISOString().split('T')[0],
+        editandoId: null,
+        carregando: false,
+
+        init() {
+          this.escutarModulo01();
+          this.escutarCompras();
+        },
+
+        escutarModulo01() {
+          db.collection("entidades").onSnapshot((snapshot) => {
+            const lojas = [];
+            const categorias = [];
+            const pagamentos = [];
+            snapshot.forEach((doc) => {
+              const data = { id: doc.id, ...doc.data() };
+              if (data.categoria === "Loja") lojas.push(data);
+              if (data.categoria === "Categoria") categorias.push(data);
+              if (data.categoria === "Cartao" || data.categoria === "Conta") pagamentos.push(data);
+            });
+            this.lojasCadastradas = lojas;
+            this.categoriasCadastradas = categorias;
+            this.pagamentosCadastrados = pagamentos;
+          });
+        },
+
+        escutarCompras() {
+          db.collection("compras").orderBy("dataCompra", "desc").onSnapshot((snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            this.compras = list;
+            this.atualizarComitivasDashboard();
+          });
+        },
+
+        async salvarCompra() {
+          if (!this.nomeItem.trim() || !this.valorTotal || !this.lojaSelecionada) return;
+
+          const dados = {
+            nomeItem: this.nomeItem.trim(),
+            valorTotal: parseFloat(this.valorTotal) || 0,
+            parcelas: parseInt(this.parcelas) || 1,
+            loja: this.lojaSelecionada,
+            categoria: this.categoriaSelecionada,
+            pagamento: this.pagamentoSelecionado,
+            natureza: this.natureza,
+            statusEntrega: this.statusEntrega,
+            dataCompra: this.dataCompra,
+            atualizadoEm: new Date().toISOString()
+          };
+
+          try {
+            if (this.editandoId) {
+              await db.collection("compras").doc(this.editandoId).update(dados);
+              this.cancelarEdicao();
+            } else {
+              await db.collection("compras").add(dados);
+              this.limparFormulario();
+            }
+          } catch(e) {
+            console.error("Erro ao salvar compra:", e);
+          }
+        },
+
+        prepararEdicao(item) {
+          this.editandoId = item.id;
+          this.nomeItem = item.nomeItem;
+          this.valorTotal = item.valorTotal;
+          this.parcelas = item.parcelas;
+          this.lojaSelecionada = item.loja;
+          this.categoriaSelecionada = item.categoria;
+          this.pagamentoSelecionado = item.pagamento;
+          this.natureza = item.natureza;
+          this.statusEntrega = item.statusEntrega;
+          this.dataCompra = item.dataCompra;
+        },
+
+        cancelarEdicao() {
+          this.editandoId = null;
+          this.limparFormulario();
+        },
+
+        limparFormulario() {
+          this.nomeItem = '';
+          this.valorTotal = '';
+          this.parcelas = 1;
+          this.lojaSelecionada = '';
+          this.categoriaSelecionada = '';
+          this.pagamentoSelecionado = '📄 Boleto Bancário';
+          this.natureza = 'Uso Pessoal';
+          this.statusEntrega = 'Em Trânsito';
+          this.dataCompra = new Date().toISOString().split('T')[0];
+        },
+
+        async excluirCompra(id) {
+          try {
+            await db.collection("compras").doc(id).delete();
+          } catch(e) {
+            console.error("Erro ao excluir compra:", e);
+          }
+        },
+
+        async atualizarComitivasDashboard() {
+          const emTransito = this.compras.filter(c => c.statusEntrega === 'Em Trânsito').length;
+          try {
+            await db.collection("dashboard_metricas").doc("resumo").set({ entregasEmTransito: emTransito }, { merge: true });
+          } catch(e) {
+            console.warn("Aviso ao atualizar métrica de entregas:", e);
+          }
+        },
+
+        async carregarDados() {
+          this.carregando = true;
+          setTimeout(() => { this.carregando = false; }, 300);
+        },
+
+        formatarMoeda(val) {
+          return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+        },
+
+        formatarData(d) {
+          if (!d) return '';
+          const partes = d.split('-');
+          return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+      }));
+    });
+  </script>
+</body>
+</html>
+    });
+  </script>
+</body>
+</html>
