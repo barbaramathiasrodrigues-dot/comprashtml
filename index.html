@@ -60,7 +60,7 @@
 
       <form @submit.prevent="salvarCompra()" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         
-        <!-- Nome do Item / Descrição -->
+        <!-- Nome do Item -->
         <div class="sm:col-span-2">
           <label class="block text-[11px] text-[#a39274] mb-1">Item / Descrição da Compra</label>
           <input type="text" x-model="nomeItem" placeholder="Ex: Monitor Dell 27, Tênis, Livro..." required
@@ -81,7 +81,7 @@
             class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
         </div>
 
-        <!-- Loja (Origem: Módulo 01) -->
+        <!-- Loja -->
         <div>
           <label class="block text-[11px] text-[#a39274] mb-1">Loja / Vendedor (Mod 01)</label>
           <select x-model="lojaSelecionada" required
@@ -93,7 +93,7 @@
           </select>
         </div>
 
-        <!-- Categoria (Origem: Módulo 01) -->
+        <!-- Categoria -->
         <div>
           <label class="block text-[11px] text-[#a39274] mb-1">Categoria (Mod 01)</label>
           <select x-model="categoriaSelecionada" required
@@ -118,13 +118,13 @@
             </optgroup>
             <optgroup label="💳 Cartões e Bancos Cadastrados">
               <template x-for="p in pagamentosCadastrados" :key="p.id">
-                <option :value="p.nome" x-text="p.nome + ' (' + p.categoria + ')'"></option>
+                <option :value="p.nome" x-text="p.nome"></option>
               </template>
             </optgroup>
           </select>
         </div>
 
-        <!-- Natureza da Compra -->
+        <!-- Natureza -->
         <div>
           <label class="block text-[11px] text-[#a39274] mb-1">Natureza</label>
           <select x-model="natureza" required
@@ -164,7 +164,7 @@
       </form>
     </section>
 
-    <!-- TABELA / LISTA DAS COMPRAS -->
+    <!-- LISTA DAS COMPRAS -->
     <section class="bg-[#14100c] p-4 rounded-lg border border-[#2e2316] space-y-3">
       <h2 class="text-sm text-[#d4af37] font-semibold flex items-center justify-between border-b border-[#2e2316] pb-2">
         <span class="flex items-center gap-2">📜 Livro de Compras Registradas</span>
@@ -221,12 +221,12 @@
 
   </div>
 
-  <!-- FOOTER STATUS -->
+  <!-- FOOTER -->
   <footer class="mt-6 text-center text-[9px] text-[#6e5d4f] border-t border-[#2e2316] pt-2">
     <span>Livro de Comércio de Bree • Projeto Erebor OS</span>
   </footer>
 
-  <!-- SCRIPT FIREBASE COMPAT + ALPINE LOGIC -->
+  <!-- SCRIPT FIREBASE -->
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDU3mYKoWh8qE3wj6R5OKqhWwXMeefEl2g",
@@ -281,7 +281,6 @@
         },
 
         escutarCompras() {
-          // Busca sem trava de índice no banco e ordena no JS
           db.collection("compras").onSnapshot((snapshot) => {
             const list = [];
             snapshot.forEach((doc) => {
@@ -385,9 +384,6 @@
         }
       }));
     });
-  </script>
-</body>
-</html>
   </script>
 </body>
 </html>
