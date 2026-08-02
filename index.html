@@ -105,21 +105,17 @@
           </select>
         </div>
 
-        <!-- Forma de Pagamento (Nativa + Módulo 01) -->
+        <!-- Forma de Pagamento -->
         <div>
           <label class="block text-[11px] text-[#a39274] mb-1">Forma de Pagamento</label>
           <select x-model="pagamentoSelecionado" required
             class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow transition">
             <option value="">Selecione a forma de pagamento...</option>
-            
-            <!-- OPÇÕES NATIVAS (BOLETO / PIX) -->
             <optgroup label="📄 Modos Diretos">
               <option value="📄 Boleto Bancário">📄 Boleto Bancário / Carnê</option>
               <option value="⚡ PIX À Vista">⚡ PIX À Vista</option>
               <option value="💵 Dinheiro Vivo">💵 Dinheiro Vivo</option>
             </optgroup>
-
-            <!-- OPÇÕES CADASTRADAS NO MÓDULO 01 -->
             <optgroup label="💳 Cartões e Bancos Cadastrados">
               <template x-for="p in pagamentosCadastrados" :key="p.id">
                 <option :value="p.nome" x-text="p.nome + ' (' + p.categoria + ')'"></option>
@@ -185,7 +181,7 @@
                 <span :class="item.statusEntrega === 'Em Trânsito' ? 'bg-[#c97d32]/20 text-[#e5a93c] border-[#c97d32]/40' : (item.statusEntrega === 'Entregue' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40' : 'bg-gray-800 text-gray-400')"
                   class="text-[9px] px-2 py-0.5 rounded border uppercase font-bold" x-text="item.statusEntrega"></span>
                 
-                <template x-if="item.pagamento.includes('Boleto')">
+                <template x-if="item.pagamento && item.pagamento.includes('Boleto')">
                   <span class="text-[9px] bg-amber-900/40 text-amber-300 border border-amber-700/50 px-1.5 py-0.5 rounded font-bold">📄 Boleto</span>
                 </template>
 
@@ -195,9 +191,9 @@
               </div>
 
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#a39274]">
-                <span>🛒 <strong class="text-[#e2d2b4]" x-text="item.loja"></strong></span>
-                <span>🏷️ <strong class="text-[#e2d2b4]" x-text="item.categoria"></strong></span>
-                <span>💳 <strong class="text-[#e2d2b4]" x-text="item.pagamento"></strong></span>
+                <span>🛒 <strong class="text-[#e2d2b4]" x-text="item.loja || 'N/A'"></strong></span>
+                <span>🏷️ <strong class="text-[#e2d2b4]" x-text="item.categoria || 'N/A'"></strong></span>
+                <span>💳 <strong class="text-[#e2d2b4]" x-text="item.pagamento || 'N/A'"></strong></span>
                 <span>📅 <span x-text="formatarData(item.dataCompra)"></span></span>
               </div>
             </div>
@@ -285,14 +281,16 @@
         },
 
         escutarCompras() {
-          db.collection("compras").orderBy("dataCompra", "desc").onSnapshot((snapshot) => {
+          // Busca sem trava de índice no banco e ordena no JS
+          db.collection("compras").onSnapshot((snapshot) => {
             const list = [];
             snapshot.forEach((doc) => {
               list.push({ id: doc.id, ...doc.data() });
             });
+            list.sort((a, b) => (b.dataCompra || '').localeCompare(a.dataCompra || ''));
             this.compras = list;
             this.atualizarComitivasDashboard();
-          });
+          }, err => console.error("Erro ao carregar compras:", err));
         },
 
         async salvarCompra() {
@@ -381,16 +379,15 @@
         },
 
         formatarData(d) {
-          if (!d) return '';
+          if (!d) return 'S/D';
           const partes = d.split('-');
-          return `${partes[2]}/${partes[1]}/${partes[0]}`;
+          return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : d;
         }
       }));
     });
   </script>
 </body>
 </html>
-    });
   </script>
 </body>
 </html>
